@@ -6,6 +6,8 @@ import sttp.tapir.client.sttp._
 import com.example.lessonservice.apispec._
 import scala.concurrent.{Future}
 import sttp.client.asynchttpclient.future.AsyncHttpClientFutureBackend
+import TestUtils.{getRequestFromEndpoint}
+import cats.data.{EitherT, Nested}
 
 class AsynchronousClientTest extends AsyncWordSpec 
   with Matchers 
@@ -42,23 +44,15 @@ class AsynchronousClientTest extends AsyncWordSpec
         }
       }
 
-      "return non-zero list of next lessons in score and get-next-lesson workflow" in {
+      "return non-zero list of next lessons in (score and get-next-lesson) workflow" in {
         val authToken = "1234"
-        val scoreRequest = Specification
-          .scoreEndpoint
-          .toSttpRequestUnsafe(uri"$ServerURL")
-          .apply((authToken, scoreLessonRequestDTO))
-
-        val upcomingLessonsRequest = Specification
-          .upcomingLessonsEndpoint
-          .toSttpRequestUnsafe(uri"$ServerURL")
-          .apply((authToken, userId))
 
         val responseFuture: Future[Either[String,UpcomingLessonsResponseDTO]] =
           for {
-            scoreResponse <- scoreRequest.send()
+            scoreResponse <- getRequestFromEndpoint(Specification.scoreEndpoint, (authToken, scoreLessonRequestDTO)).send()
             if (scoreResponse.body.isRight)
-            upcomingLessonsResponse <- upcomingLessonsRequest.send()
+            uid = scoreResponse.body.right.get.userId
+            upcomingLessonsResponse <- getRequestFromEndpoint(Specification.upcomingLessonsEndpoint, (authToken, uid)).send()
           } yield upcomingLessonsResponse.body
 
         responseFuture.map { response => 
